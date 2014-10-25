@@ -29,7 +29,7 @@ def add_randoms_to_measurement(report_id, asn, country, random_date, pt, bridge_
         "bridge_hashed_fingerprint": bridge_hash,
         "bridge_fingerprint": None,
         "obfsproxy_version": "0.2.12",
-        "success": None,
+        "success": random.choice([True, False]),
         "timeout": 600,
         "tor_log": None,
         "tor_progress": 100,

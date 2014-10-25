@@ -1,10 +1,27 @@
 import json
 from pymongo import MongoClient
+from bson.json_util import dumps
 import sys
 import pprint
 
 def find_closest(controls, experiment):
     return min(controls, key=lambda x: abs(x['start_time'] - experiment['start_time']))
+
+def truth_table(experiment, control):
+    result_experiment = experiment['success']
+    result_control = control['success']
+
+    if result_experiment == True and result_control == True:
+        return "ok"
+    elif result_experiment == True and result_control == False:
+        return "inconsistent"
+    elif result_experiment == False and result_control == True:
+        return "blocked"
+    elif result_experiment == False and result_control == False:
+        return "offline"
+
+    assert(0)
+
 
 def main(hashes_filename):
     # XXX: Catch exceptions
@@ -44,18 +61,19 @@ def main(hashes_filename):
     for country, measurements in experiments.items():
         for measurement in measurements:
             closest_control = find_closest(controls, measurement)
-            print "===================="
-            print "Experiment:", measurement
-            print "Control:", closest_control
-            print "===================="
-            """
-            status = truth_table(experiment, closest_control)
-            experiment['status'] = status
+            status = truth_table(measurement, closest_control)
+            measurement['status'] = status
             bridge = measurement['input']
-            output[country][bridge].append(experiment)
-            """
+            if country not in output:
+                output[country] = {}
+            else:
+                if bridge not in output[country]:
+                    output[country][bridge] = []
+                output[country][bridge].append(measurement)
+    return output
 
 if __name__ == "__main__":
     hashes_filename = sys.argv[1]
-    main(hashes_filename)
-
+    output = main(hashes_filename)
+    output_filename = sys.argv[2]
+    print dumps(output)
