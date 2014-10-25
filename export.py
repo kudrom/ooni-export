@@ -1,6 +1,6 @@
 import json
 from pymongo import MongoClient
-from bson.json_util import dumps
+import bson.json_util
 import sys
 import pprint
 
@@ -26,39 +26,19 @@ def get_hashes(hashes_filename):
     hashes = [h.rstrip() for h in hashes]
     return hashes
 
-def main(hashes_filename):
-    hashes = get_hashes(hashes_filename)
+def get_output(experiments, controls):
+    """
+    Generate the output
 
-    # Connect to database
-    client = MongoClient('127.0.0.1', 27017)
-    db = client.ooni
-
-    # Find measurements we are interested in. 
-    measurements = db.measurements.aggregate([{"$match": {"input": {"$in": hashes}}}])
-
-
-    # Populate an auxiliary variable with the measurements of a report
-    report_ids = {}
-    for measurement in measurements['result']:
-        if not measurement['report_id'] in report_ids:
-            report_ids[measurement['report_id']] = []
-        report_ids[measurement['report_id']].append(measurement)
-
-    # For each report, find if its a control or experiment.
-    controls = []
-    experiments = {}
-    for report_id, measurements in report_ids.items():
-        report = db.reports.find_one({"_id": report_id})
-        country = report['probe_cc']
-        if country == 'NL':
-            controls.extend(measurements)
-        else:
-            if country not in experiments:
-                experiments[country] = []
-            experiments[country].extend(measurements)
-
-    # Generate the output
+    'output' is a map from country codes to 'bridge_dictionaries'.
+    'bridge_dictionaries' is a map from bridges to their measurements.
+    Example:
+    {"RU" : { "1.2.3.4:42040" : [ {"transport_name" ...}, {"transport_name ..."} ],
+            { "4.3.2.1:60465" : [ {"transport_name" ...}, {"transport_name ..."} ],
+     "CN" : { ...}
+    """
     output = {}
+
     for country, measurements in experiments.items():
         if country not in output:
             output[country] = {}
@@ -70,10 +50,53 @@ def main(hashes_filename):
             if bridge not in output[country]:
                 output[country][bridge] = []
             output[country][bridge].append(measurement)
+
     return output
 
+
+def main(hashes_filename, output_filename):
+    hashes = get_hashes(hashes_filename)
+
+    # Connect to database
+    client = MongoClient('127.0.0.1', 27017)
+    db = client.ooni
+
+    # Find measurements we are interested in.
+    measurements = db.measurements.aggregate([{"$match": {"input": {"$in": hashes}}}])
+
+    # Populate an auxiliary variable with the measurements of a report
+    # report_ids is a map from a report_id to its [measurements]
+    report_ids = {}
+    for measurement in measurements['result']:
+        if not measurement['report_id'] in report_ids:
+            report_ids[measurement['report_id']] = []
+        report_ids[measurement['report_id']].append(measurement)
+
+    # For each report, assign it to be a control or experiment.
+
+    # Controls is a list of control measurements
+    controls = []
+    # Experiments is a map from a country code to an experiment
+    # measurement.
+    experiments = {}
+    for report_id, measurements in report_ids.items():
+        report = db.reports.find_one({"_id": report_id})
+        country = report['probe_cc']
+
+        # If country is the Netherlands, it's a control measurement.
+        if country == 'NL':
+            controls.extend(measurements)
+        else:
+            if country not in experiments:
+                experiments[country] = []
+            experiments[country].extend(measurements)
+
+    output = get_output(experiments, controls)
+    print bson.json_util.dumps(output)
+
 if __name__ == "__main__":
+    assert(len(sys.argv) > 1)
+
     hashes_filename = sys.argv[1]
-    output = main(hashes_filename)
     output_filename = sys.argv[2]
-    print dumps(output)
+    output = main(hashes_filename, output_filename)
