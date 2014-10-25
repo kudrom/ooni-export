@@ -1,6 +1,5 @@
 import json
 from pymongo import MongoClient
-import bson.json_util
 import sys
 import pprint
 
@@ -46,6 +45,11 @@ def get_output(experiments, controls):
             closest_control = find_closest(controls, measurement)
             status = truth_table(measurement, closest_control)
             measurement['status'] = status
+
+            # This is private data of mongodb
+            del measurement['_id']
+            del measurement['report_id']
+
             bridge = measurement['input']
             if bridge not in output[country]:
                 output[country][bridge] = []
@@ -92,7 +96,8 @@ def main(hashes_filename, output_filename):
             experiments[country].extend(measurements)
 
     output = get_output(experiments, controls)
-    print bson.json_util.dumps(output)
+    with open(output_filename, 'w') as fp:
+        json.dump(output, fp, sort_keys=True, indent=4, separators=(',', ': '))
 
 if __name__ == "__main__":
     assert(len(sys.argv) > 1)
