@@ -1,5 +1,5 @@
 import json
-import pymongo
+from pymongo import MongoClient
 import sys
 
 def main(hashes_filename):
@@ -9,10 +9,18 @@ def main(hashes_filename):
     client = MongoClient('127.0.0.1', 27017)
     db = client.ooni
 
-    measurements = []
+    # Populate the reports with the reports we're interested in
+    reports = []
     for h in hashes:
-        measurements.append(db.measurements.find({"input": h}))
-    print measurements
+        measurements = db.measurements.find({"input": h})
+        for m in measurements:
+            report = db.reports.find({"_id": m['report_id']})
+            for r in report:
+                reports.append(r)
+
+    # Find control reports
+
+
 
 if __name__ == "__main__":
     hashes_filename = sys.argv[1]

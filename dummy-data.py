@@ -19,9 +19,9 @@ def add_random_to_reports(asn, country, random_date):
         "test_name": "bridge_reachability",
         "test_version": "0.1.1"
     }
-    db.reports.insert(header)
+    return db.reports.insert(header)
 
-def add_randoms_to_measurement(asn, country, random_date, pt, bridge_hash, distributor):
+def add_randoms_to_measurement(report_id, asn, country, random_date, pt, bridge_hash, dist):
     entry = {
         "bridge_address": None,
         "error": "missing-fteproxy",
@@ -29,7 +29,7 @@ def add_randoms_to_measurement(asn, country, random_date, pt, bridge_hash, distr
         "bridge_hashed_fingerprint": bridge_hash,
         "bridge_fingerprint": None,
         "obfsproxy_version": "0.2.12",
-        "success": random.choice([True, False]),
+        "success": None,
         "timeout": 600,
         "tor_log": None,
         "tor_progress": 100,
@@ -37,7 +37,8 @@ def add_randoms_to_measurement(asn, country, random_date, pt, bridge_hash, distr
         "tor_progress_summary": None,
         "tor_progress_tag": None,
         "tor_version": "0.2.5.7-rc",
-        "transport_name": pt
+        "transport_name": pt,
+        "report_id": report_id
     }
     db.measurements.insert(entry)
 
@@ -61,6 +62,6 @@ for asn, country in countries:
     for x in range (0, numdays):
         date = latest_time - datetime.timedelta(days = x)
         random_date = date - datetime.timedelta(minutes = random.randint(0, 420))
-        add_random_to_reports(asn, country, random_date)
+        report_id = add_random_to_reports(asn, country, random_date)
         for pt, bridge_hash, dist in bridge_hashes:
-            add_randoms_to_measurement(asn, country, random_date, pt, bridge_hash, dist)
+            add_randoms_to_measurement(report_id, asn, country, random_date, pt, bridge_hash, dist)
